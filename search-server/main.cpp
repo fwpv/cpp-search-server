@@ -100,7 +100,7 @@ private:
     };
 
     set<string> stop_words_;
-	// key - word, value - map (key - document_id, value - TF)
+    // key - word, value - map (key - document_id, value - TF)
     map<string, map<int, double>> words_of_documents_;
     int document_count_ = 0;
     
