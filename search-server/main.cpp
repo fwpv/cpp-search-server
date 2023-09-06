@@ -60,14 +60,11 @@ public:
     void AddDocument(int document_id, const string& document) {
         const vector<string> words = SplitIntoWordsNoStop(document);
         
-        map<string, int> words_frequency;
-        for (const string& word: words) {
-            words_frequency[word]++;
-        }
+        double word_fraction = 1.0 / words.size();
         
         for (const string& word: words) {
-            double tf = words_frequency[word] / static_cast<double>(words.size());
-            words_of_documents_[word][document_id] = tf;
+            // Calculate TF of a word in the document
+            words_of_documents_[word][document_id] += word_fraction;
         }
         
         document_count_ += 1;
@@ -142,6 +139,10 @@ private:
         }
         return query;
     }
+    
+    double CalculateIdf(int doc_with_word_count) const {
+        return log(document_count_ / static_cast<double>(doc_with_word_count));
+    }
 
     vector<Document> FindAllDocuments(const Query& query) const {
         map<int, double> relevance_map; // key - document_id, value - relevance
@@ -150,15 +151,13 @@ private:
             if (words_of_documents_.count(plus_word)) {
                 const map<int, double>& docs = words_of_documents_.at(plus_word);
                 
-                // Calculate IDF of a plus_word in a query
-                double idf = document_count_ / static_cast<double>(docs.size());
-                idf = log(idf);
+                double idf = CalculateIdf(docs.size());
                 
                 for (const auto& [id, tf] : docs) {
-                    // Calculate IDF-TF of a plus_word in that document
+                    // Calculate IDF-TF of a plus_word in the document
                     double idf_tf = idf * tf;
                     
-                    // Accumulate all IDF-TF of that document
+                    // Accumulate all IDF-TF of the document
                     relevance_map[id] += idf_tf; 
                 }
             }
