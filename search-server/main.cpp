@@ -1,5 +1,3 @@
-// Код поисковой системы из финального задания спринта №2
-
 #include <algorithm>
 #include <cmath>
 #include <iostream>
@@ -27,25 +25,6 @@ int ReadLineWithNumber() {
     return result;
 }
 
-/*vector<string> SplitIntoWords(const string& text) {
-    vector<string> words;
-    string word;
-    for (const char c : text) {
-        if (c == ' ') {
-            if (!word.empty()) {
-                words.push_back(word);
-                word.clear();
-            }
-        } else {
-            word += c;
-        }
-    }
-    if (!word.empty()) {
-        words.push_back(word);
-    }
-
-    return words;
-}*/
 vector<string> SplitIntoWords(const string& text) {
     vector<string> words;
     for (size_t i = 0; i < text.size(); ++i) {
