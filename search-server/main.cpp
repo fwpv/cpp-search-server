@@ -1,3 +1,5 @@
+// Код поисковой системы из финального задания спринта №2
+
 #include <algorithm>
 #include <cmath>
 #include <iostream>
@@ -25,7 +27,7 @@ int ReadLineWithNumber() {
     return result;
 }
 
-vector<string> SplitIntoWords(const string& text) {
+/*vector<string> SplitIntoWords(const string& text) {
     vector<string> words;
     string word;
     for (const char c : text) {
@@ -43,9 +45,38 @@ vector<string> SplitIntoWords(const string& text) {
     }
 
     return words;
+}*/
+vector<string> SplitIntoWords(const string& text) {
+    vector<string> words;
+    for (size_t i = 0; i < text.size(); ++i) {
+        if (text[i] == ' ') {
+            continue;
+        }
+        const size_t space_pos = text.find(' ', i);
+        if (space_pos == text.npos) {
+            words.push_back(text.substr(i));
+            break;
+        } else {
+            words.push_back(text.substr(i, space_pos - i));
+            i = space_pos;
+        }
+    }
+    return words;
 }
 
 struct Document {
+    Document()
+        : id(0),
+        relevance(0),
+        rating(0) 
+    {        
+    }
+    Document(int set_id, double set_relevance, int set_rating)
+        : id(set_id),
+        relevance(set_relevance),
+        rating(set_rating)
+    {        
+    }
     int id;
     double relevance;
     int rating;
@@ -60,12 +91,30 @@ enum class DocumentStatus {
 
 class SearchServer {
 public:
-    void SetStopWords(const string& text) {
-        for (const string& word : SplitIntoWords(text)) {
-            stop_words_.insert(word);
-        }
+    SearchServer() = default;
+    
+    template <typename Collection>
+    SearchServer(const Collection& collection) {
+        SetStopWords(collection);
+    }
+    
+    SearchServer(const string& text) {
+        SetStopWords(SplitIntoWords(text));
     }
 
+    void SetStopWords(const string& text) {
+        SetStopWords(SplitIntoWords(text));
+    }
+
+    template <typename Collection>
+    void SetStopWords(const Collection& collection) {
+        for (const string& word : collection) {
+            if (!word.empty()) {
+                stop_words_.emplace(word);
+            }
+        } 
+    }
+    
     void AddDocument(int document_id, const string& document, DocumentStatus status,
                      const vector<int>& ratings) {
         const vector<string> words = SplitIntoWordsNoStop(document);
@@ -570,8 +619,8 @@ int main() {
     // Если вы видите эту строку, значит все тесты прошли успешно
     cout << "Search server testing finished"s << endl;
 
-    SearchServer search_server;
-    search_server.SetStopWords("и в на"s);
+    const vector<string> stop_words_vector = {"и"s, "в"s, "на"s, ""s, "в"s};
+    SearchServer search_server(stop_words_vector);
 
     search_server.AddDocument(0, "белый кот и модный ошейник"s, DocumentStatus::ACTUAL, {8, -3});
     search_server.AddDocument(1, "пушистый кот пушистый хвост"s, DocumentStatus::ACTUAL, {7, 2, 7});
