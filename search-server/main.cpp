@@ -81,7 +81,7 @@ public:
     explicit SearchServer(const StringContainer& stop_words) {
         for (const string& str : stop_words) {
             if (HasSpecialCharacters(str)) {
-                throw invalid_argument("Invalid characters in stop words");
+                throw invalid_argument("Invalid characters in stop words"s);
             }
         }
         stop_words_ = MakeUniqueNonEmptyStrings(stop_words); 
@@ -94,18 +94,17 @@ public:
     void AddDocument(int document_id, const string& document, DocumentStatus status,
                      const vector<int>& ratings) {
         if (document_id < 0)
-            throw invalid_argument("Negative document id");
+            throw invalid_argument("Negative document id"s);
         
         if (documents_.count(document_id))
-            throw invalid_argument("Document id already exists");
-
-        if (HasSpecialCharacters(document)) {
-            throw invalid_argument("Invalid characters in document");
-        }
+            throw invalid_argument("Document id already exists"s);
 
         const vector<string> words = SplitIntoWordsNoStop(document);
         const double inv_word_count = 1.0 / words.size();
         for (const string& word : words) {
+            if (HasSpecialCharacters(word)) {
+                throw invalid_argument("Invalid characters in word: "s + word);
+            }
             word_to_document_freqs_[word][document_id] += inv_word_count;
         }
         documents_.insert({document_id, DocumentData{ComputeAverageRating(ratings), status}});
@@ -115,11 +114,11 @@ public:
     template <typename DocumentPredicate>
     vector<Document> FindTopDocuments(const string& raw_query, DocumentPredicate document_predicate) const {
         if (HasSpecialCharacters(raw_query)) {
-            throw invalid_argument("Invalid characters in query");
+            throw invalid_argument("Invalid characters in query"s);
         }
 
         if (HasWrongMinuses(raw_query)) {
-             throw invalid_argument("Wrong minuses in query");
+             throw invalid_argument("Wrong minuses in query"s);
         }
 
         const Query query = ParseQuery(raw_query);
@@ -156,11 +155,11 @@ public:
 
     tuple<vector<string>, DocumentStatus> MatchDocument(const string& raw_query, int document_id) const {
         if (HasSpecialCharacters(raw_query)) {
-            throw invalid_argument("Invalid characters in query");
+            throw invalid_argument("Invalid characters in query"s);
         }
 
         if (HasWrongMinuses(raw_query)) {
-             throw invalid_argument("Wrong minuses in query");
+             throw invalid_argument("Wrong minuses in query"s);
         }
 
         const Query query = ParseQuery(raw_query);
@@ -187,10 +186,7 @@ public:
     }
 
     int GetDocumentId(int index) const {
-        if (index >= 0 && index < static_cast<int>(documents_.size()))
-            return document_ids_[index];
-        else
-            throw out_of_range("Invalid document id");
+        return document_ids_.at(index);
     }
 
 private:
@@ -346,6 +342,8 @@ int main() {
         for (const Document& document : documents) {
             PrintDocument(document);
         }
+        int id = search_server.GetDocumentId(1);
+        cout << "Unreachable line " << id << endl;
     } catch (const invalid_argument& e) {
         cout << "Invalid argument: " << e.what() << endl;
     } catch (const out_of_range& e) {
