@@ -81,7 +81,7 @@ public:
     explicit SearchServer(const StringContainer& stop_words) {
         for (const string& str : stop_words) {
             if (HasSpecialCharacters(str)) {
-                throw invalid_argument("Invalid characters in stop words"s);
+                throw invalid_argument("Invalid characters in stop word: "s + str);
             }
         }
         stop_words_ = MakeUniqueNonEmptyStrings(stop_words); 
@@ -102,9 +102,6 @@ public:
         const vector<string> words = SplitIntoWordsNoStop(document);
         const double inv_word_count = 1.0 / words.size();
         for (const string& word : words) {
-            if (HasSpecialCharacters(word)) {
-                throw invalid_argument("Invalid characters in word: "s + word);
-            }
             word_to_document_freqs_[word][document_id] += inv_word_count;
         }
         documents_.insert({document_id, DocumentData{ComputeAverageRating(ratings), status}});
@@ -207,6 +204,9 @@ private:
     vector<string> SplitIntoWordsNoStop(const string& text) const {
         vector<string> words;
         for (const string& word : SplitIntoWords(text)) {
+            if (HasSpecialCharacters(word)) {
+                throw invalid_argument("Invalid characters in word: "s + word);
+            }
             if (!IsStopWord(word)) {
                 words.push_back(word);
             }
@@ -333,7 +333,7 @@ void PrintDocument(const Document& document) {
 
 int main() {
     try {
-        SearchServer search_server("и в на"s);
+        SearchServer search_server("и в на скво\x12рец"s);
         search_server.AddDocument(1, "пушистый кот пушистый хвост"s, DocumentStatus::ACTUAL, {7, 2, 7});
         search_server.AddDocument(1, "пушистый пёс и модный ошейник"s, DocumentStatus::ACTUAL, {1, 2});
         search_server.AddDocument(-1, "пушистый пёс и модный ошейник"s, DocumentStatus::ACTUAL, {1, 2});
