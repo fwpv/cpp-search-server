@@ -57,6 +57,14 @@ struct Document {
     int rating = 0;
 };
 
+ostream& operator<<(ostream& output, const Document& document) {
+    output << "{ "s
+         << "document_id = "s << document.id << ", "s
+         << "relevance = "s << document.relevance << ", "s
+         << "rating = "s << document.rating << " }"s;
+    return output;
+}
+
 template <typename StringContainer>
 set<string> MakeUniqueNonEmptyStrings(const StringContainer& strings) {
     set<string> non_empty_strings;
@@ -78,23 +86,23 @@ enum class DocumentStatus {
 class SearchServer {
 public:
     template <typename StringContainer>
-    explicit SearchServer(const StringContainer& stop_words) {
-        for (const string& str : stop_words) {
-            if (HasSpecialCharacters(str)) {
-                throw invalid_argument("Invalid characters in stop word: "s + str);
-            }
+    explicit SearchServer(const StringContainer& stop_words)
+        : stop_words_(MakeUniqueNonEmptyStrings(stop_words))  // Extract non-empty stop words
+    {
+        if (!all_of(stop_words_.begin(), stop_words_.end(), IsValidWord)) {
+            throw invalid_argument("Some of stop words are invalid"s);
         }
-        stop_words_ = MakeUniqueNonEmptyStrings(stop_words); 
     }
 
     explicit SearchServer(const string& stop_words_text)
-        : SearchServer(SplitIntoWords(stop_words_text)) {
+        : SearchServer(SplitIntoWords(stop_words_text))  // Invoke delegating constructor from string container
+    {
     }
     
     void AddDocument(int document_id, const string& document, DocumentStatus status,
                      const vector<int>& ratings) {
         if (document_id < 0)
-            throw invalid_argument("Negative document id"s);
+            throw invalid_argument("Invalid document_id"s);
         
         if (documents_.count(document_id))
             throw invalid_argument("Document id already exists"s);
@@ -104,20 +112,12 @@ public:
         for (const string& word : words) {
             word_to_document_freqs_[word][document_id] += inv_word_count;
         }
-        documents_.insert({document_id, DocumentData{ComputeAverageRating(ratings), status}});
+        documents_.emplace(document_id, DocumentData{ComputeAverageRating(ratings), status});
         document_ids_.push_back(document_id);
     }
 
     template <typename DocumentPredicate>
     vector<Document> FindTopDocuments(const string& raw_query, DocumentPredicate document_predicate) const {
-        if (HasSpecialCharacters(raw_query)) {
-            throw invalid_argument("Invalid characters in query"s);
-        }
-
-        if (HasWrongMinuses(raw_query)) {
-             throw invalid_argument("Wrong minuses in query"s);
-        }
-
         const Query query = ParseQuery(raw_query);
         auto matched_documents = FindAllDocuments(query, document_predicate);
         sort(matched_documents.begin(), matched_documents.end(),
@@ -151,14 +151,6 @@ public:
     }
 
     tuple<vector<string>, DocumentStatus> MatchDocument(const string& raw_query, int document_id) const {
-        if (HasSpecialCharacters(raw_query)) {
-            throw invalid_argument("Invalid characters in query"s);
-        }
-
-        if (HasWrongMinuses(raw_query)) {
-             throw invalid_argument("Wrong minuses in query"s);
-        }
-
         const Query query = ParseQuery(raw_query);
         vector<string> matched_words;
         for (const string& word : query.plus_words) {
@@ -201,11 +193,18 @@ private:
         return stop_words_.count(word) > 0;
     }
 
+    static bool IsValidWord(const string& word) {
+        // A valid word must not contain special characters
+        return none_of(word.begin(), word.end(), [](char c) {
+            return c >= '\0' && c < ' ';
+        });
+    }
+
     vector<string> SplitIntoWordsNoStop(const string& text) const {
         vector<string> words;
         for (const string& word : SplitIntoWords(text)) {
-            if (HasSpecialCharacters(word)) {
-                throw invalid_argument("Invalid characters in word: "s + word);
+            if (!IsValidWord(word)) {
+                throw invalid_argument("Word "s + word + " is invalid"s);
             }
             if (!IsStopWord(word)) {
                 words.push_back(word);
@@ -222,47 +221,27 @@ private:
         return rating_sum / static_cast<int>(ratings.size());
     }
 
-    static bool HasWrongMinuses(const string& text) {
-        if (text.empty()) {
-            return false;
-        }
-
-        if (text[text.size() - 1] == '-') {
-            return true;
-        }
-
-        for (size_t i = 0; i < text.size() - 1; ++i) {
-            if (text[i] == '-' && (text[i+1] == '-' || text[i+1] == ' ')) {
-                return true;
-            }
-        }    
-
-        return false;
-    }
-
-    static bool HasSpecialCharacters(const string& text) {
-        for (unsigned char c : text) {
-            if (c <= 31 ) {
-                return true;
-            }
-        }
-        return false;
-    }
-
     struct QueryWord {
         string data;
         bool is_minus;
         bool is_stop;
     };
 
-    QueryWord ParseQueryWord(string text) const {
-        bool is_minus = false;
-        // Word shouldn't be empty
-        if (text[0] == '-') {
-            is_minus = true;
-            text = text.substr(1);
+    QueryWord ParseQueryWord(const string& text) const {
+        if (text.empty()) {
+            throw invalid_argument("Query word is empty"s);
         }
-        return {text, is_minus, IsStopWord(text)};
+        string word = text;
+        bool is_minus = false;
+        if (word[0] == '-') {
+            is_minus = true;
+            word = word.substr(1);
+        }
+        if (word.empty() || word[0] == '-' || !IsValidWord(word)) {
+            throw invalid_argument("Query word "s + text + " is invalid");
+        }
+
+        return {word, is_minus, IsStopWord(word)};
     }
 
     struct Query {
@@ -324,33 +303,90 @@ private:
     }
 };
 
-void PrintDocument(const Document& document) {
-    cout << "{ "s
-         << "document_id = "s << document.id << ", "s
-         << "relevance = "s << document.relevance << ", "s
-         << "rating = "s << document.rating << " }"s << endl;
+template <typename Iterator>
+class IteratorRange {
+public:
+    IteratorRange(Iterator begin, Iterator end)
+        : first_(begin)
+        , last_(end)
+        , size_(distance(first_, last_))
+    {
+    }
+
+    Iterator begin() const {
+        return first_;
+    }
+
+    Iterator end() const {
+        return last_;
+    }
+
+    int size() const {
+        return size_;
+    }
+
+private:
+    Iterator first_;
+    Iterator last_;
+    size_t size_;
+};
+
+template <typename Iterator>
+ostream& operator<<(ostream& output, const IteratorRange<Iterator>& range) {
+    for (Iterator it = range.begin(); it != range.end(); ++it) {
+        output << *it;
+    }
+    return output;
+}
+
+template <typename Iterator>
+class Paginator {
+public:
+    Paginator(Iterator begin, Iterator end, int page_size) {
+        int count = 0;
+        Iterator range_end = begin;
+        while (range_end++ != end) {
+            if (++count == page_size || range_end == end) {
+                pages_.push_back(IteratorRange(begin, range_end));
+                begin = range_end;
+                count = 0;
+            }
+        }
+    }
+    auto begin() const {
+        return pages_.begin();
+    }
+
+    auto end() const {
+        return pages_.end();
+    }
+
+    size_t size() const {
+        return pages_.size();
+    }
+
+private: 
+    vector<IteratorRange<Iterator>> pages_;
+}; 
+
+template <typename Container>
+auto Paginate(const Container& c, size_t page_size) {
+    return Paginator(begin(c), end(c), page_size);
 }
 
 int main() {
-    try {
-        SearchServer search_server("и в на скво\x12рец"s);
-        search_server.AddDocument(1, "пушистый кот пушистый хвост"s, DocumentStatus::ACTUAL, {7, 2, 7});
-        search_server.AddDocument(1, "пушистый пёс и модный ошейник"s, DocumentStatus::ACTUAL, {1, 2});
-        search_server.AddDocument(-1, "пушистый пёс и модный ошейник"s, DocumentStatus::ACTUAL, {1, 2});
-        search_server.AddDocument(3, "большой пёс скво\x12рец"s, DocumentStatus::ACTUAL, {1, 3, 2});
-        const auto documents = search_server.FindTopDocuments("--пушистый"s);
-        for (const Document& document : documents) {
-            PrintDocument(document);
-        }
-        int id = search_server.GetDocumentId(1);
-        cout << "Unreachable line " << id << endl;
-    } catch (const invalid_argument& e) {
-        cout << "Invalid argument: " << e.what() << endl;
-    } catch (const out_of_range& e) {
-        cout << "Out of range: " << e.what() << endl;
-    } catch (...) {
-        cout << "Unknown error"<< endl;
+    SearchServer search_server("and with"s);
+    search_server.AddDocument(1, "funny pet and nasty rat"s, DocumentStatus::ACTUAL, {7, 2, 7});
+    search_server.AddDocument(2, "funny pet with curly hair"s, DocumentStatus::ACTUAL, {1, 2, 3});
+    search_server.AddDocument(3, "big cat nasty hair"s, DocumentStatus::ACTUAL, {1, 2, 8});
+    search_server.AddDocument(4, "big dog cat Vladislav"s, DocumentStatus::ACTUAL, {1, 3, 2});
+    search_server.AddDocument(5, "big dog hamster Borya"s, DocumentStatus::ACTUAL, {1, 1, 1});
+    const auto search_results = search_server.FindTopDocuments("curly dog"s);
+    int page_size = 2;
+    const auto pages = Paginate(search_results, page_size);
+    // Выводим найденные документы по страницам
+    for (auto page = pages.begin(); page != pages.end(); ++page) {
+        cout << *page << endl;
+        cout << "Page break"s << endl;
     }
-
-    return 0;
-}
+} 
