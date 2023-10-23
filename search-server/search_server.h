@@ -30,7 +30,7 @@ public:
     }
     
     void AddDocument(int document_id, const std::string& document,
-                    DocumentStatus status, const std::vector<int>& ratings);
+            DocumentStatus status, const std::vector<int>& ratings);
 
     template <typename DocumentPredicate>
     std::vector<Document> FindTopDocuments(const std::string& raw_query,
