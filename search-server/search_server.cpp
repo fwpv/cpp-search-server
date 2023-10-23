@@ -11,8 +11,8 @@
 
 using namespace std::string_literals;
 
-void SearchServer::AddDocument(int document_id, const std::string& document, DocumentStatus status,
-                    const std::vector<int>& ratings) {
+void SearchServer::AddDocument(int document_id, const std::string& document,
+        DocumentStatus status, const std::vector<int>& ratings) {
     if (document_id < 0)
         throw std::invalid_argument("Invalid document_id"s);
     
@@ -29,7 +29,7 @@ void SearchServer::AddDocument(int document_id, const std::string& document, Doc
 }
 
 std::vector<Document> SearchServer::FindTopDocuments(const std::string& raw_query,
-                                                     DocumentStatus status) const {
+        DocumentStatus status) const {
     return FindTopDocuments(
         raw_query, [status](int, DocumentStatus document_status, int) {
             return document_status == status;
@@ -38,6 +38,10 @@ std::vector<Document> SearchServer::FindTopDocuments(const std::string& raw_quer
 
 std::vector<Document> SearchServer::FindTopDocuments(const std::string& raw_query) const {
     return FindTopDocuments(raw_query, DocumentStatus::ACTUAL);
+}
+
+int SearchServer::GetDocumentCount() const {
+    return documents_.size();
 }
 
 std::tuple<std::vector<std::string>, DocumentStatus>
@@ -64,6 +68,10 @@ std::tuple<std::vector<std::string>, DocumentStatus>
     std::tuple<std::vector<std::string>, DocumentStatus> result
         = { matched_words, documents_.at(document_id).status };
     return result;
+}
+
+int SearchServer::GetDocumentId(int index) const {
+    return document_ids_.at(index);
 }
 
 bool SearchServer::IsStopWord(const std::string& word) const {
@@ -116,8 +124,8 @@ SearchServer::QueryWord SearchServer::ParseQueryWord(const std::string& text) co
 }
 
 double SearchServer::ComputeWordInverseDocumentFreq(const std::string& word) const {
-        return std::log(GetDocumentCount() * 1.0 / word_to_document_freqs_.at(word).size());
-    }
+    return std::log(GetDocumentCount() * 1.0 / word_to_document_freqs_.at(word).size());
+}
 
 SearchServer::Query SearchServer::ParseQuery(const std::string& text) const {
     Query query;

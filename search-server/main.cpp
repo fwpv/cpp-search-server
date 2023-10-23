@@ -8,6 +8,9 @@
 
 using namespace std::string_literals;
 
+//Не проходит тесты тренажёра без этой строрчки
+//using namespace std;
+
 int main() {
     SearchServer search_server("and in at"s);
     RequestQueue request_queue(search_server);
