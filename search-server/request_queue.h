@@ -34,10 +34,6 @@ private:
     int no_result_count_ = 0;
 
     void ProcessRequest(std::vector<Document>& documents);
-
-    // Примечание: В авторском решении зачем-то учитывается текущее время
-    // https://pastebin.com/m7YHGX9e
-    // возможно это пригодится в дальнейшем
 };
 
 template <typename DocumentPredicate>
